@@ -11,6 +11,7 @@ from __future__ import division
 import matplotlib.pyplot as plt
 import numpy as np
 import argparse
+import collections
 
 if __name__ == "__main__":
     
@@ -18,12 +19,14 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     
     # Set up potential arguments for parsing
+    parser.add_argument("-s", "--samples", type=int, help="number of samples to generate", default=10000)
     parser.add_argument("-d", "--dimensions", type=int, help="number of dimensions to generate", default=2)
     parser.add_argument("-m", "--models", type=int, help="number of gaussian models in mixture", default=3)
     args = parser.parse_args()
     
     # Spit out setting to user
     print("Gaussian Mixture Model for generation:")
+    print("Number of samples: " + str(args.samples))
     print("Number of dimensions: " + str(args.dimensions))
     print("Number of Gaussian models in mixture: " + str(args.models))
     
@@ -40,19 +43,34 @@ if __name__ == "__main__":
     
     # Force covariances to be symmetrical
     for i in range(gaussian_model_covar.shape[-1]):
-        gaussian_model_covar[:,:,i] = (gaussian_model_covar[:,:,i] + gaussian_model_covar[:,:,i].T)/2
+        gaussian_model_covar[:,:,i] = np.dot(gaussian_model_covar[:,:,i],gaussian_model_covar[:,:,i].T) # Force positive semidefinite
+        gaussian_model_covar[:,:,i] = (gaussian_model_covar[:,:,i] + gaussian_model_covar[:,:,i].T)/2 # Force symmetrical
     
     # Generate the gmm data
-    # For each point, determine the Gaussian model to draw from
-    gaussian_model = np.random.choice(np.arange(0, args.models), p=normalized_model_weights)
+    # For each sample, determine the Gaussian model to draw from
+    gaussian_model_samples = np.random.choice(np.arange(0, args.models), p=normalized_model_weights, size=args.samples)
     
-    # Pull the parameters of the Gaussian model (mu and sigma) for each dimension
-    model_mean = gaussian_model_means[:,gaussian_model]
-    model_covar = np.squeeze(gaussian_model_covar[:,:,gaussian_model])
+    # Accumulate the model samples to batch generate from each gaussian model for faster generation
+    model_occurrences = collections.Counter(gaussian_model)
     
-    # Generate the d-dimensional point
-    x, y, z = np.random.multivariate_normal(model_mean, model_covar, 100).T
+    # Initialize the empty array to store all values
+    complete_dataset = np.empty([args.samples,args.dimensions])
+    complete_labels = np.empty([args.samples,1])    
     
+    # Generate the points from each model
+    fill_index = 0
+    for i in model_occurrences:
+        # Step 1: Load the model parameters
+        model_mean = gaussian_model_means[:,i]
+        model_covariance = np.squeeze(gaussian_model_covar[:,:,i])
+        
+        # Step 2 Sample the parameters
+        complete_dataset[fill_index:(fill_index+model_occurrences[i]),:] = np.random.multivariate_normal(model_mean, model_covariance, model_occurrences[i])
+        complete_labels[fill_index:(fill_index+model_occurrences[i]),0] = i
+        fill_index += model_occurrences[i]
+    
+    '''    
     # Plot the points for visualization
     plt.scatter(x, y)
     plt.show
+    '''
