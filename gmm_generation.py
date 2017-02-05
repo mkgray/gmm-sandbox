@@ -68,9 +68,7 @@ if __name__ == "__main__":
         complete_dataset[fill_index:(fill_index+model_occurrences[i]),:] = np.random.multivariate_normal(model_mean, model_covariance, model_occurrences[i])
         complete_labels[fill_index:(fill_index+model_occurrences[i]),0] = i
         fill_index += model_occurrences[i]
-    
-    '''    
+     
     # Plot the points for visualization
-    plt.scatter(x, y)
+    plt.scatter(complete_dataset[:,0], complete_dataset[:,1])
     plt.show
-    '''
